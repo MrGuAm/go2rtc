@@ -17,6 +17,35 @@ func (c *Conn) GetMedias() []*core.Media {
 	return c.Medias
 }
 
+func waitKeyframe(name string, handler core.HandlerFunc) core.HandlerFunc {
+	started := false
+
+	return func(packet *rtp.Packet) {
+		if started {
+			handler(packet)
+			return
+		}
+
+		switch name {
+		case core.CodecH264:
+			if !h264.IsKeyframe(packet.Payload) {
+				return
+			}
+		case core.CodecH265:
+			if !h265.IsKeyframe(packet.Payload) {
+				return
+			}
+		default:
+			started = true
+			handler(packet)
+			return
+		}
+
+		started = true
+		handler(packet)
+	}
+}
+
 func (c *Conn) AddTrack(media *core.Media, codec *core.Codec, track *core.Receiver) (err error) {
 	var channel byte
 
@@ -152,8 +181,12 @@ func (c *Conn) packetWriter(codec *core.Codec, channel, payloadType uint8) core.
 		switch codec.Name {
 		case core.CodecH264:
 			handlerFunc = h264.RTPPay(c.PacketSize, handlerFunc)
+			handlerFunc = h264.RepairAVCC(codec, handlerFunc)
+			handlerFunc = waitKeyframe(codec.Name, handlerFunc)
 		case core.CodecH265:
 			handlerFunc = h265.RTPPay(c.PacketSize, handlerFunc)
+			handlerFunc = h265.RepairAVCC(codec, handlerFunc)
+			handlerFunc = waitKeyframe(codec.Name, handlerFunc)
 		case core.CodecAAC:
 			handlerFunc = aac.RTPPay(handlerFunc)
 		case core.CodecJPEG:
@@ -165,9 +198,13 @@ func (c *Conn) packetWriter(codec *core.Codec, channel, payloadType uint8) core.
 		switch codec.Name {
 		case core.CodecH264:
 			handlerFunc = h264.RTPPay(c.PacketSize, handlerFunc)
+			handlerFunc = h264.RepairAVCC(codec, handlerFunc)
+			handlerFunc = waitKeyframe(codec.Name, handlerFunc)
 			handlerFunc = h264.RTPDepay(codec, handlerFunc)
 		case core.CodecH265:
 			handlerFunc = h265.RTPPay(c.PacketSize, handlerFunc)
+			handlerFunc = h265.RepairAVCC(codec, handlerFunc)
+			handlerFunc = waitKeyframe(codec.Name, handlerFunc)
 			handlerFunc = h265.RTPDepay(codec, handlerFunc)
 		}
 	}
