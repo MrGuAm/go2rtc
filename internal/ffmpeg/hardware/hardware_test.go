@@ -78,7 +78,7 @@ func TestMakeHardwareCachesAutoH265Probe(t *testing.T) {
 	require.Equal(t, []string{"-c:v hevc_videotoolbox -g 50"}, second.Codecs)
 }
 
-func TestMakeHardwareVideoToolboxUsesNV12WhenFiltersPresent(t *testing.T) {
+func TestMakeHardwareVideoToolboxUsesHWFiltersWhenSupported(t *testing.T) {
 	args := &pkgffmpeg.Args{
 		Bin:     "ffmpeg",
 		Input:   "-i input.mp4",
@@ -91,7 +91,25 @@ func TestMakeHardwareVideoToolboxUsesNV12WhenFiltersPresent(t *testing.T) {
 
 	MakeHardware(args, EngineVideoToolbox, defaults)
 
+	require.Equal(t, "-hwaccel videotoolbox -hwaccel_output_format videotoolbox_vld -i input.mp4", args.Input)
+	require.Equal(t, []string{"-c:v h264_videotoolbox -g 50"}, args.Codecs)
+	require.Equal(t, []string{"scale_vt=1920:1080"}, args.Filters)
+}
+
+func TestMakeHardwareVideoToolboxFallsBackToNV12ForSoftwareFilters(t *testing.T) {
+	args := &pkgffmpeg.Args{
+		Bin:     "ffmpeg",
+		Input:   "-i input.mp4",
+		Codecs:  []string{"-c:v libx264 -g 50"},
+		Filters: []string{"drawtext=fontsize=12:text=test"},
+	}
+	defaults := map[string]string{
+		"h264/videotoolbox": "-c:v h264_videotoolbox -g 50",
+	}
+
+	MakeHardware(args, EngineVideoToolbox, defaults)
+
 	require.Equal(t, "-hwaccel videotoolbox -hwaccel_output_format nv12 -i input.mp4", args.Input)
 	require.Equal(t, []string{"-c:v h264_videotoolbox -g 50"}, args.Codecs)
-	require.Equal(t, []string{"scale=1920:1080"}, args.Filters)
+	require.Equal(t, []string{"drawtext=fontsize=12:text=test"}, args.Filters)
 }

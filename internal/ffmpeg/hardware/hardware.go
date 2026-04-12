@@ -118,12 +118,34 @@ func MakeHardware(args *ffmpeg.Args, engine string, defaults map[string]string) 
 			args.InsertFilter("hwmap=derive_device=qsv,format=qsv")
 
 		case EngineVideoToolbox:
-			if len(args.Filters) > 0 {
-				// VideoToolbox hardware frames can't be consumed by regular software filters
-				// such as scale/drawtext/transpose without an explicit format conversion.
-				args.Input = "-hwaccel videotoolbox -hwaccel_output_format nv12 " + args.Input
-			} else {
+			hwFilters := true
+
+			for i, filter := range args.Filters {
+				switch {
+				case strings.HasPrefix(filter, "scale="):
+					args.Filters[i] = "scale_vt=" + filter[6:]
+				case strings.HasPrefix(filter, "transpose="):
+					switch filter {
+					case "transpose=1":
+						args.Filters[i] = "transpose_vt=clock"
+					case "transpose=2":
+						args.Filters[i] = "transpose_vt=cclock"
+					case "transpose=1,transpose=1":
+						args.Filters[i] = "transpose_vt=reversal"
+					default:
+						hwFilters = false
+					}
+				default:
+					hwFilters = false
+				}
+			}
+
+			if hwFilters {
 				args.Input = "-hwaccel videotoolbox -hwaccel_output_format videotoolbox_vld " + args.Input
+			} else {
+				// VideoToolbox hardware frames can't be consumed by regular software filters
+				// such as drawtext without an explicit format conversion.
+				args.Input = "-hwaccel videotoolbox -hwaccel_output_format nv12 " + args.Input
 			}
 			args.Codecs[i] = defaults[name+"/"+engine]
 
