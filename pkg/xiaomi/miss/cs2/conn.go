@@ -24,7 +24,7 @@ func Dial(host, transport string) (*Conn, error) {
 		Conn:  conn,
 		isTCP: isTCP,
 		channels: [4]*dataChannel{
-			newDataChannel(0, ctrlPopBufSize, false), nil, newDataChannel(mediaPushBufSize, mediaPopBufSize, true), nil,
+			newDataChannel(0, ctrlPopBufSize, true), nil, newDataChannel(mediaPushBufSize, mediaPopBufSize, true), nil,
 		},
 	}
 	go c.worker()
@@ -46,7 +46,7 @@ type Conn struct {
 }
 
 const (
-	ctrlPopBufSize   = 10
+	ctrlPopBufSize   = 64
 	mediaPushBufSize = 250
 	// Xiaomi cs2 cameras may burst media packets faster than the consumer drains them,
 	// especially on high bitrate streams or when downstream processing stalls briefly.
