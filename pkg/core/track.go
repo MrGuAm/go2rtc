@@ -80,9 +80,11 @@ func NewSender(media *Media, codec *Codec) *Sender {
 
 	if GetKind(codec.Name) == KindVideo {
 		if codec.IsRTP() {
-			// in my tests 40Mbit/s 4K-video can generate up to 1500 items
-			// for the h264.RTPDepay => RTPPay queue
-			bufSize = 4096
+			// High bitrate 4K RTP video can easily burst far above the original
+			// queue depth when one or more downstream consumers briefly stall
+			// (for example local FFmpeg transcodes fed over RTSP).
+			// A larger queue helps avoid packet drops that later break GOP decoding.
+			bufSize = 16384
 		} else {
 			bufSize = 64
 		}
