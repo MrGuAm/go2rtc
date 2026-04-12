@@ -24,7 +24,7 @@ func Dial(host, transport string) (*Conn, error) {
 		Conn:  conn,
 		isTCP: isTCP,
 		channels: [4]*dataChannel{
-			newDataChannel(0, ctrlPopBufSize), nil, newDataChannel(mediaPushBufSize, mediaPopBufSize), nil,
+			newDataChannel(0, ctrlPopBufSize, false), nil, newDataChannel(mediaPushBufSize, mediaPopBufSize, true), nil,
 		},
 	}
 	go c.worker()
@@ -414,8 +414,8 @@ func (c *tcpConn) Write(req []byte) (n int, err error) {
 	return
 }
 
-func newDataChannel(pushSize, popSize int) *dataChannel {
-	c := &dataChannel{}
+func newDataChannel(pushSize, popSize int, dropOnFull bool) *dataChannel {
+	c := &dataChannel{dropOnFull: dropOnFull}
 	if pushSize > 0 {
 		c.pushBuf = make(map[uint16][]byte, pushSize)
 		c.pushSize = pushSize
@@ -434,6 +434,8 @@ type dataChannel struct {
 	waitData []byte
 	waitSize int
 	popBuf   chan []byte
+
+	dropOnFull bool
 }
 
 func (c *dataChannel) Push(b []byte) error {
@@ -452,7 +454,20 @@ func (c *dataChannel) Push(b []byte) error {
 		select {
 		case c.popBuf <- c.waitData[:c.waitSize]:
 		default:
-			return fmt.Errorf("pop buffer is full")
+			if !c.dropOnFull {
+				return fmt.Errorf("pop buffer is full")
+			}
+
+			// For live media it is usually better to drop the oldest buffered packet
+			// than to tear down the whole connection and force a reconnect.
+			select {
+			case <-c.popBuf:
+			default:
+			}
+			select {
+			case c.popBuf <- c.waitData[:c.waitSize]:
+			default:
+			}
 		}
 
 		c.waitData = c.waitData[c.waitSize:]
