@@ -145,7 +145,7 @@ var defaults = map[string]string{
 	"mjpeg/dxva2": "-c:v mjpeg_qsv",
 
 	// hardware macOS
-	"h264/videotoolbox": "-c:v h264_videotoolbox -g 50 -bf 0 -profile:v high -level:v 4.1",
+	"h264/videotoolbox": "-c:v h264_videotoolbox -g 50 -bf 0 -profile:v high",
 	"h265/videotoolbox": "-c:v hevc_videotoolbox -g 50 -bf 0 -profile:v main -level:v 5.1",
 }
 
