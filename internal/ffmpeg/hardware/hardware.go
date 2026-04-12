@@ -45,10 +45,9 @@ func MakeHardware(args *ffmpeg.Args, engine string, defaults map[string]string) 
 			continue // skip unsupported codec
 		}
 
-		// temporary disable probe for H265
-		if engine == "" && name != "h265" {
+		if engine == "" {
 			if engine = cache[name]; engine == "" {
-				engine = ProbeHardware(args.Bin, name)
+				engine = probeHardware(args.Bin, name)
 				cache[name] = engine
 			}
 		}
@@ -160,6 +159,7 @@ func MakeHardware(args *ffmpeg.Args, engine string, defaults map[string]string) 
 }
 
 var cache = map[string]string{}
+var probeHardware = ProbeHardware
 
 func run(bin string, args string) bool {
 	err := exec.Command(bin, strings.Split(args, " ")...).Run()
