@@ -24,7 +24,7 @@ func Dial(host, transport string) (*Conn, error) {
 		Conn:  conn,
 		isTCP: isTCP,
 		channels: [4]*dataChannel{
-			newDataChannel(0, 10), nil, newDataChannel(250, 100), nil,
+			newDataChannel(0, ctrlPopBufSize), nil, newDataChannel(mediaPushBufSize, mediaPopBufSize), nil,
 		},
 	}
 	go c.worker()
@@ -46,6 +46,13 @@ type Conn struct {
 }
 
 const (
+	ctrlPopBufSize   = 10
+	mediaPushBufSize = 250
+	// Xiaomi cs2 cameras may burst media packets faster than the consumer drains them,
+	// especially on high bitrate streams or when downstream processing stalls briefly.
+	// A larger pop buffer reduces avoidable reconnects caused by transient backpressure.
+	mediaPopBufSize = 512
+
 	magic        = 0xF1
 	magicDrw     = 0xD1
 	magicTCP     = 0x68
